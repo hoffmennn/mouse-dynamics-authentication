@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score, roc_curve
 
-def compute_far_threshold(y_true, y_score, target_far=0.01):
+def compute_far_threshold(y_true, y_score, target_far):
     fpr, tpr, thresholds = roc_curve(y_true, y_score)
     idx = np.where(fpr <= target_far)[0]
     if len(idx) == 0:
@@ -76,6 +76,49 @@ def evaluate_user_model(
     return auc, FAR, FRR
 
 
+def evaluate_user_model_multisegment(
+    user_id,
+    model,
+    threshold,
+    test_df,
+    neg_test_ratio=5
+):
+    # POSITIVE (ALL SEGMENTS) 
+    pos = test_df[test_df.user_id == user_id]
+    X_pos = pos[get_feature_columns(test_df)]
+    pos_scores = model.predict_proba(X_pos)[:, 1]
+
+    pos_score_mean = np.mean(pos_scores)
+    pos_decision = pos_score_mean >= threshold
+
+    # NEGATIVE (IMPOSTORS)
+    neg = test_df[test_df.user_id != user_id]
+    neg_sampled = neg.sample(
+        n=min(len(neg), len(pos) * neg_test_ratio),
+        random_state=42
+    )
+
+    X_neg = neg_sampled[get_feature_columns(test_df)]
+    neg_scores = model.predict_proba(X_neg)[:, 1]
+
+    neg_decisions = neg_scores >= threshold
+
+    #METRICS
+    FAR = np.mean(neg_decisions)      # impostor accepted
+    FRR = 1.0 - float(pos_decision)   # genuine rejected
+
+    # AUC
+    y = np.concatenate([
+        np.ones(len(pos_scores)),
+        np.zeros(len(neg_scores))
+    ])
+    probs = np.concatenate([pos_scores, neg_scores])
+    auc = roc_auc_score(y, probs)
+
+    return auc, FAR, FRR
+
+
+
 train_df = pd.read_csv("ALL_USERS_FEATURES.csv")
 test_df  = pd.read_csv("TEST_FEATURES.csv")
 
@@ -84,11 +127,11 @@ users = sorted(train_df.user_id.unique())
 results = []
 
 for uid in users:
-    print(f"=== USER {uid} ===")
+    print(f"user {uid}")
 
-    model, thr = train_user_model(uid, train_df)
+    model, thr = train_user_model(uid, train_df, target_far=0.025)
 
-    auc, far, frr = evaluate_user_model(
+    auc, far, frr = evaluate_user_model_multisegment(
         uid,
         model,
         thr,
@@ -106,8 +149,8 @@ for uid in users:
 results_df = pd.DataFrame(results)
 
 
-print("\n=== OVERALL RESULTS ===")
+print("\n  results: \n")
 print(results_df.describe())
 
 print("\nUsers with AUC < 0.6:")
-print(results_df[results_df.AUC < 0.6][["user_id", "AUC"]])
+print(len(results_df[results_df.AUC < 0.6][["user_id", "AUC"]]))

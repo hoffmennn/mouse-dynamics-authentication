@@ -1,0 +1,127 @@
+zameranie na mouse dynamics
+ukazat moznost identifikacie nad roznymi datasetmi
+ zavislost od konkretnych charakteristik
+
+
+vyuzit modely eXplainable AI, SHAP, LIME, + heatmaps 
+navrhnut vizualizacie konkretnych rozhodnuti, trajektorie s dolezitymi charakteristikmi 
+moznost doplnenia datasetov pre vizualizacie
+
+
+
+----> DATASET <-------
+
+sapimouse: 130u, 4min sessions, moznost doplnenia vlstnych dat
+
+boun mouse dynamics dataset: 24u, days of usage, 19users + 5u na test internal attacks
+
+----> HYPOTEZY <------ 
+
+  1. Identifikacia pouzivatela je mozna na zaklade dat s pohybmi mysou
+       - natrenovat klasifikator -> co najlepsia uspesnost
+
+  2. Je možné vizualizovať konkrétne rozhodnutia modelu pre lepšie pochopenie.
+            - identifikovať a vizualizovať konkrétne, krátke segmenty 
+            v  trajektórii, ktoré majú najväčší vplyv (pozitívny/negatívny) 
+            na rozhodnutie modelu o identite
+
+  3. Pri krížovom testovaní (napr. trénované na Sapimouse, testované na BOUN) dôjde k poklesu výkonu (zvýšenie EER)
+      v porovnaní s lokálnou optimalizáciou.
+            -  Vysvetlenie Zlyhania pomocou XAI
+
+  
+
+
+  2. Dolezistost charakteristik je nezavisla od scenaru pouzitia.
+  
+        rozdiel v dolezitosti charakteristik medzi 2 roznymi datasetmi
+
+        !! uniformna extrakcia príznakov, rovnake casove okna, rovnaky klasifikator 
+
+      
+PLAN 
+
+---- november ----
+
+features engeneering 
+early tests with ML models 
+
+
+
+
+
+FEATURES: 
+A. Event-level (pre každú pohybovú vzorku alebo klik)
+
+dt = časový rozdiel medzi susednými udalostiami: t[i+1] - t[i]
+
+dx, dy = posun: x[i+1]-x[i], y[i+1]-y[i]
+
+dist = euclid. vzdialenosť: sqrt(dx^2+dy^2)
+
+vel = rýchlosť: dist / dt (ošetri dt≈0)
+
+acc = (vel[i+1] - vel[i]) / dt
+
+jerk = (acc[i+1] - acc[i]) / dt
+
+angle = atan2(dy, dx) (smery)
+
+curvature ≈ zmena uhla / dist
+
+is_click / click_type (LC, RC, DC) / click_duration (release - press)
+
+B. Digraph / action-pair features (pre páry stlačení / pohybov)
+
+press-to-press, release-to-press, press-to-release latencie
+
+inter-click time (double-click interval)
+
+drag_duration, drag_dist, drag_straightness (straightness = euclid_dist / path_length)
+
+C. Trajectory / shape features
+
+path_length (súčet dist)
+
+net_displacement (euclid od začiatku po koniec)
+
+straightness_ratio = net_displacement / path_length
+
+num_direction_changes (počet sign changes v dx/dy)
+
+area_enclosed (približná plocha trajektórie)
+
+dominant_frequency (FFT rýchlostí) — optional
+
+D. Session-aggregáty (ikož trénuješ na session-level)
+Pre každú session vypočítaj:
+
+mean_vel, median_vel, std_vel, p10_vel, p90_vel
+
+mean_acc, std_acc
+
+mean_dt, std_dt
+
+click_rate (#clicks / session_time)
+
+prop_moves_vs_clicks
+
+mean_drag_dist, mean_drag_duration
+
+mean_curvature, std_curvature
+
+window_usage_ratios (% time v browser/dev/office/...)
+
+entropy_of_angles (variabilita smerov)
+
+
+
+
+
+teoria 
+
+ - clanky, zdroje... 
+ - ML test
+
+ 
+ 
