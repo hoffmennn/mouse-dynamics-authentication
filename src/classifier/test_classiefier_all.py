@@ -119,8 +119,8 @@ def evaluate_user_model_multisegment(
 
 
 
-train_df = pd.read_csv("ALL_USERS_FEATURES.csv")
-test_df  = pd.read_csv("TEST_FEATURES.csv")
+train_df = pd.read_csv("train_data.csv")
+test_df  = pd.read_csv("test_data.csv")
 
 users = sorted(train_df.user_id.unique())
 
