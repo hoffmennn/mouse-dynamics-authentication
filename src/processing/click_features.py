@@ -1,9 +1,10 @@
 import numpy as np
 import pandas as pd
 
+
+
 def compute_click_features_old(df):
     
-
     pressed_events = df[df['state'] == 'Pressed'].copy()
     released_events = df[df['state'] == 'Released'].copy()
     
@@ -72,3 +73,43 @@ def compute_click_features(df, dist_threshold=10):
         'mean_inter_click_time': inter_click_times.mean() if not inter_click_times.empty else 0,
         'std_inter_click_time': inter_click_times.std() if not inter_click_times.empty else 0,
     }
+
+
+def compute_click_duration(segment):
+
+    
+    #only pressed/released events 
+    mask = segment['state'].isin(['Pressed', 'Released'])
+    events = segment[mask].reset_index(drop=True)
+    
+    if len(events) < 2:
+        return 0.0
+        
+
+    is_pressed = events['state'] == 'Pressed'
+    is_next_released = events['state'].shift(-1) == 'Released'
+    
+    pair_starts = is_pressed & is_next_released
+    
+    if not pair_starts.any():
+        return 0.0
+        
+    #extract data for Pressed - Released pairs
+    t1 = events.loc[pair_starts, 'client timestamp'].values
+    x1 = events.loc[pair_starts, 'x'].values
+    y1 = events.loc[pair_starts, 'y'].values
+    
+    released_indices = np.where(pair_starts)[0] + 1
+    t2 = events.loc[released_indices, 'client timestamp'].values
+    x2 = events.loc[released_indices, 'x'].values
+    y2 = events.loc[released_indices, 'y'].values
+    
+
+    durations = t2 - t1
+    distances_sq = (x2 - x1)**2 + (y2 - y1)**2
+    
+    valid_clicks = durations[distances_sq <= 400]
+    if len(valid_clicks) == 0:
+        return 0.0
+        
+    return np.mean(valid_clicks)

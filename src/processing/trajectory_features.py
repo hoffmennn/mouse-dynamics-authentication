@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from . import click_features as cf
+from ..utils import utils
+
+MICRO_PAUSE = 100 #ms
 
 def segment_mouse_actions(df, dist_threshold=10, pause_threshold=1000):
     """Split mouse trajectory into movement segments based on action, using vector operations.
@@ -54,13 +58,60 @@ def clear_short_segments(segments, min_duration_ms=200):
     
     return filtered
 
+def apply_sliding_window(df_user, user_id, window_size=5, step=1):
+    """
+        compute rolling features
+    """
+    if len(df_user) < window_size:
+        print(f"user {user_id} does not have enough segments")
+        return pd.DataFrame()
+
+    # replacing zero click durations with median duration
+    if 'click_duration' in df_user.columns:
+        non_zero_clicks = df_user.loc[df_user['click_duration'] > 0, 'click_duration']
+        if not non_zero_clicks.empty:
+            click_median = non_zero_clicks.median()
+            df_user['click_duration'] = df_user['click_duration'].replace(0, click_median)
+
+
+    # columns without calculation
+    no_calc_cols = ['user_id', 'segment_id', 'is_pc', 'is_dd', 'csv_file']
+    no_calc_cols = [c for c in no_calc_cols if c in df_user.columns]
+    feature_cols = [c for c in df_user.columns if c not in no_calc_cols]
+
+    rolled_features = df_user[feature_cols].rolling(window=window_size).agg(['mean', 'std'])
+
+    # remove multiindex
+    rolled_features.columns = [f"{col}_{func}" for col, func in rolled_features.columns]
+
+    # add non-calculated columns
+    for col in no_calc_cols:
+        rolled_features[col] = df_user[col]
+
+    # remove first NaN rows
+    rolled = rolled_features.dropna().reset_index(drop=True)
+
+    if step > 1:
+        rolled = rolled.iloc[::step].reset_index(drop=True)
+
+    cols_order = no_calc_cols + [c for c in rolled.columns if c not in no_calc_cols]
+    rolled = rolled[cols_order]
+
+    rolled = rolled.drop(columns=['segment_id', 'is_pc', 'is_dd'])
+    rolled.insert(0, 'window_id', range(len(rolled)))
+    rolled.to_csv("sliding_window.csv",index=False)
+    return rolled
+
 
 def compute_trajectory_features(df, user_id):
     """Compute trajectory-level features""" 
 
     df = df.copy()   
+    #utils.plot_feature_histogram(df, 'dt')  # DEBUG - plot velocity histogram
     trajectories = segment_mouse_actions(df)
+    #utils.write_all_segments_to_csv(trajectories, "segments.csv")  # DEBUG - write all segments to csv
     trajectories = clear_short_segments(trajectories)
+    #utils.write_all_segments_to_csv(trajectories, "cleared_segments.csv") 
     all_features = []
     segment_id = 0
 
@@ -104,6 +155,9 @@ def compute_trajectory_features(df, user_id):
         sc = ((time_i1 - tcm) ** 2 * dist_i).sum() / path_length if path_length > 0 else 0
         sc_norm = sc / (duration ** 2) if duration > 0 else 0 
 
+        #num pauses
+        pauses = (df_trajectory['dt'] > MICRO_PAUSE).sum()
+
 
 
         all_features.append({
@@ -135,6 +189,11 @@ def compute_trajectory_features(df, user_id):
             'num_direction_changes': num_direction_changes,
             'tcm_norm': tcm_norm,
             'scattering_coefficient_norm': sc_norm,
+            'sum_angle_change': df_trajectory['angle_change'].abs().sum(),
+
+            'num_pauses': pauses,  
+            'time_duration': time_duration,
+            'click_duration': cf.compute_click_duration(df_trajectory),
 
             'is_pc': int(df_trajectory['segment_type'].iloc[0] == 'pc') if not df_trajectory.empty else 0,
             'is_dd': int(df_trajectory['segment_type'].iloc[0] == 'dd') if not df_trajectory.empty else 0,
@@ -143,13 +202,15 @@ def compute_trajectory_features(df, user_id):
         segment_id += 1
 
 
-
+    
     # convert to DataFrame
     features_df = pd.DataFrame(all_features)
+    features_df = apply_sliding_window(features_df, user_id, window_size=12, step=1)
 
-    features_df.to_csv("splitted_features.csv", index=False)
+    #features_df.to_csv("splitted_features.csv", index=False)
 
     return features_df
+
     
 
 
