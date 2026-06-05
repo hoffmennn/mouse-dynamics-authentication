@@ -1,6 +1,7 @@
 import pandas as pd
 from pathlib import Path
 from src.processing import features
+from src.utils import utils
 
 ROOT_DIR = Path(__file__).parent 
 USERS_ROOT = ROOT_DIR / "data" / "sapimouse" / "sapimouse"
@@ -14,7 +15,8 @@ def get_user_id_from_path(path):
     
 def main():
     all_features = []
-
+    
+    count = 0
     for user_dir in USERS_ROOT.iterdir():
         if not user_dir.is_dir():
             continue
@@ -26,25 +28,25 @@ def main():
         print(f"\nProcessing user {user_id} ...")
 
         
-        for csv_path in user_dir.glob("session_*_1min.csv"):
+        #count += 1
+        #if count > 15:
+        #    break
+
+        for csv_path in user_dir.glob("session_*_3min.csv"):
             print(f" - file: {csv_path.name}")
 
-            try:
-                
-                df = features.load_session_data(csv_path)
-                
-                features_df = features.extract_user_features(df, user_id)
-                
-                features_df["csv_file"] = csv_path.name
-                all_features.append(features_df)
-
-            except Exception as e:
-                print(f"   !!! error in processing {csv_path.name}: {e}")
+            df = features.load_session_data(csv_path)
+            
+            features_df = features.extract_user_features(df, user_id)
+            
+            features_df["csv_file"] = csv_path.name
+            all_features.append(features_df)
 
 
     if all_features:
         final_df = pd.concat(all_features, ignore_index=True)
-        final_df.to_csv("test_data.csv", index=False)
+
+        final_df.to_csv("train-sw22-st2.csv", index=False)
         print("\ndataset saved")
 
     else:
@@ -52,3 +54,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#data = features.load_session_data("plot_td_hist.csv")
+#utils.plot_feature_histogram(data, "time_duration")

@@ -52,11 +52,11 @@ for target_user_id in all_users:
 
     
     xgb = XGBClassifier(
-        n_estimators=1000,
-        learning_rate=0.05,
+        n_estimators=1500,
+        learning_rate=0.03,
         max_depth=4,
         subsample=0.8,
-        colsample_bytree=0.8,
+        colsample_bytree=0.7,
         reg_alpha=0.1,
         reg_lambda=1.0,
         scale_pos_weight=scale_pos_weight,
@@ -66,7 +66,6 @@ for target_user_id in all_users:
         random_state=5,
         n_jobs=-1,
         tree_method="hist",
-        device="cuda"
     )
 
     #training
