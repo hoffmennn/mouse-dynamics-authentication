@@ -16,7 +16,7 @@ def get_user_id_from_path(path):
 def main():
     all_features = []
     
-    count = 0
+    
     for user_dir in USERS_ROOT.iterdir():
         if not user_dir.is_dir():
             continue
@@ -28,9 +28,6 @@ def main():
         print(f"\nProcessing user {user_id} ...")
 
         
-        #count += 1
-        #if count > 15:
-        #    break
 
         for csv_path in user_dir.glob("session_*_3min.csv"):
             print(f" - file: {csv_path.name}")
