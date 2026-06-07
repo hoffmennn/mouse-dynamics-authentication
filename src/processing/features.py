@@ -17,7 +17,7 @@ def extract_user_features(df, user_id):
 
     df_features = tf.compute_trajectory_features(df, user_id)
     
-    df_features_sliding_window = sp.apply_sliding_window(df_features, user_id, 22, 3)
+    df_features_sliding_window = sp.apply_sliding_window(df_features, user_id, 22, 2)
     
     #debug
     #trajectory_features.to_csv("user_full_features.csv", index=False)
